@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Multi-Exchange Trade Bot</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f4f6f9;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 550px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    h2 {
+      margin-top: 0;
+      color: #333;
+      text-align: center;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: #444;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+      font-size: 14px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #0066ff;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover {
+      background-color: #0052cc;
+    }
+    #responseMessage {
+      margin-top: 15px;
+      padding: 12px;
+      border-radius: 4px;
+      display: none;
+      font-weight: bold;
+    }
+    .success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .section-title {
+      margin-top: 20px;
+      margin-bottom: 10px;
+      font-size: 16px;
+      font-weight: bold;
+      color: #1a73e8;
+      border-bottom: 2px solid #e0e0e0;
+      padding-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Multi-Exchange Trade Bot</h2>
+  
+  <form id="tradeForm">
+    <!-- Account Selection -->
+    <div class="form-group">
+      <label for="accountId">Select Account</label>
+      <select id="accountId" required>
+        <option value="" disabled selected>-- Choose Account --</option>
+        <option value="1">Gautam</option>
+        <option value="2">Arvndbhai</option>
+        <option value="3">Vilasben</option>
+      </select>
+    </div>
+
+    <div class="section-title">Trade Configurations</div>
+    
+    <div class="grid-2">
+      <div class="form-group">
+        <label for="symbol">Symbol (Market Pair)</label>
+        <input type="text" id="symbol" value="BTC" required />
+      </div>
+      <div class="form-group">
+        <label for="side">Order Side</label>
+        <select id="side" required>
+          <option value="buy">BUY</option>
+          <option value="sell">SELL</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label for="delta_quantity">Delta Lots per Round</label>
+        <input type="number" step="any" id="delta_quantity" placeholder="0.01" required />
+      </div>
+      <div class="form-group">
+        <label for="coindcx_quantity">CoinDCX Qty per Round</label>
+        <input type="number" step="any" id="coindcx_quantity" placeholder="0.001" required />
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label for="leverage">Leverage (Delta)</label>
+        <input type="number" id="leverage" value="10" required />
+      </div>
+      <div class="form-group">
+        <label for="time_interval">Interval (Seconds)</label>
+        <input type="number" id="time_interval" value="5" required />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="batch">Batch Count (Number of Rounds)</label>
+      <input type="number" id="batch" value="3" required />
+    </div>
+
+    <button type="submit">Start Execution</button>
+  </form>
+
+  <div id="responseMessage"></div>
+</div>
+
+<script>
+  document.getElementById("tradeForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const responseMsg = document.getElementById("responseMessage");
+    responseMsg.style.display = "none";
+    responseMsg.className = "";
+
+    const payload = {
+      account_id: document.getElementById("accountId").value,
+      symbol: document.getElementById("symbol").value,
+      side: document.getElementById("side").value,
+      delta_quantity: parseFloat(document.getElementById("delta_quantity").value),
+      coindcx_quantity: parseFloat(document.getElementById("coindcx_quantity").value),
+      leverage: parseInt(document.getElementById("leverage").value),
+      time_interval: parseInt(document.getElementById("time_interval").value),
+      batch: parseInt(document.getElementById("batch").value)
+    };
+
+    try {
+      const response = await fetch("http://127.0.0.1:5000/start-trading", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        responseMsg.textContent = data.message;
+        responseMsg.className = "success";
+      } else {
+        responseMsg.textContent = data.error || "Failed to start trading.";
+        responseMsg.className = "error";
+      }
+    } catch (err) {
+      responseMsg.textContent = "Error connecting to Flask backend: " + err.message;
+      responseMsg.className = "error";
+    }
+
+    responseMsg.style.display = "block";
+  });
+</script>
+
+</body>
+</html>
