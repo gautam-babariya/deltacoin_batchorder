@@ -114,7 +114,7 @@
         <input type="text" id="symbol" value="BTC" required />
       </div>
       <div class="form-group">
-        <label for="side">Order Side</label>
+        <label for="side">Order Side (delta)</label>
         <select id="side" required>
           <option value="buy">BUY</option>
           <option value="sell">SELL</option>
@@ -156,6 +156,9 @@
 </div>
 
 <script>
+  // Dynamically injected from Flask environment variables
+  const BACKEND_URL = "{{ backend_url }}"; 
+
   document.getElementById("tradeForm").addEventListener("submit", async function(e) {
     e.preventDefault();
 
@@ -175,7 +178,8 @@
     };
 
     try {
-      const response = await fetch("http://127.0.0.1:5000/start-trading", {
+      // Uses the dynamic BACKEND_URL variable loaded from .env
+      const response = await fetch(`${BACKEND_URL}/start-trading`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

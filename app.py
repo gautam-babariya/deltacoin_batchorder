@@ -104,11 +104,11 @@ def place_dcx_order(api_key, api_secret, side, symbol, order_type, price, total_
         
         # Format symbol for CoinDCX
         pair = f"B-{symbol.upper()}_USDT"
-
+        reverse_side = "buy" if side.lower() == "sell" else "sell"
         body = {
             "timestamp": timeStamp,
             "order": {
-                "side": side.lower(),
+                "side": reverse_side,
                 "pair": pair,
                 "order_type": order_type.lower(),
                 "price": float(price) if price else 0,
@@ -143,7 +143,7 @@ def place_dcx_order(api_key, api_secret, side, symbol, order_type, price, total_
         return {"error": str(e)}
 
 def trading_job(data):
-    """Background worker executing batch rounds with a 0.5s delay for Delta Exchange."""
+    """Background worker executing batch rounds simultaneously across both exchanges."""
     account_id = str(data.get("account_id"))
     
     if account_id not in ACCOUNTS_DB:
@@ -165,29 +165,14 @@ def trading_job(data):
     batch = int(data.get("batch"))
 
     for round_num in range(1, batch + 1):
-        print(f"--- [Account {account_id}] Starting Round {round_num} of {batch} (0.5s Delta Delay) ---")
-        
-        # Helper function to handle Delta with a 0.5 second delay
-        def delayed_delta_order():
-            time.sleep(0.5) # 0.5 second delay
-            return place_delta_order(
-                delta_baseurl=creds["delta_baseurl"],
-                delta_apikey=creds["delta_apikey"],
-                delta_apisecret=creds["delta_apisecret"],
-                symbol=symbol,
-                size=delta_qty,
-                side=side,
-                order_type=order_type,
-                price=price,
-                leverage=leverage
-            )
+        print(f"--- [Account {account_id}] Starting Round {round_num} of {batch} (Simultaneous Execution) ---")
 
-        # Use ThreadPoolExecutor to fire CoinDCX immediately and Delta with 0.5s delay
+        # Use ThreadPoolExecutor to fire both CoinDCX and Delta orders concurrently at the exact same time
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
             future_coindcx = None
             future_delta = None
 
-            # Submit CoinDCX task immediately if key & qty are available
+            # Submit CoinDCX task if key & qty are available
             if creds["coindcx_apikey"] and creds["coindcx_apisecret"] and coindcx_qty:
                 future_coindcx = executor.submit(
                     place_dcx_order,
@@ -201,9 +186,20 @@ def trading_job(data):
                     leverage=leverage
                 )
             
-            # Submit Delta Exchange task with the 0.5s delay built-in
+            # Submit Delta Exchange task simultaneously
             if creds["delta_apikey"] and creds["delta_apisecret"] and delta_qty:
-                future_delta = executor.submit(delayed_delta_order)
+                future_delta = executor.submit(
+                    place_delta_order,
+                    delta_baseurl=creds["delta_baseurl"],
+                    delta_apikey=creds["delta_apikey"],
+                    delta_apisecret=creds["delta_apisecret"],
+                    symbol=symbol,
+                    size=delta_qty,
+                    side=side,
+                    order_type=order_type,
+                    price=price,
+                    leverage=leverage
+                )
             
             # Gather responses as they finish
             if future_coindcx:
@@ -219,7 +215,8 @@ def trading_job(data):
 
 @app.route('/')
 def home():
-    return render_template('index.html')
+    backend_url = os.getenv("BACKEND_URL", "http://127.0.0.1:5000")
+    return render_template('index.html', backend_url=backend_url)
 
 @app.route('/start-trading', methods=['POST'])
 def start_trading():
